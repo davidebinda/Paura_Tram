@@ -1,0 +1,12 @@
+glider.rle
+double_glider.rle
+110P62.rle
+coso.rle
+rings.rle
+synth.rle
+star.rle
+deviators.rle
+spaceship_types.rle
+nave_tridente.rle
+eye.rle
+gliders-collisions.rle
