@@ -22,3 +22,4 @@ blockchain che usi le cellular automata com e valuta (valore a seconda della com
 studiare andamento differenziale di un iniaziale stato randomico secondo le regole delle cellular automata
 
 (bucci puzza)
+(davvero)
