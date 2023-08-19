@@ -6,14 +6,17 @@
 <br>
 
 # CELLULAR AUTOMATA
+
 programma modulare che permetta di utilizzare tutti i diversi algoritmi di cellular automata
 <br>
 <br>
 
 # BLOCKCHAIN
+
 blockchain che usi le cellular automata com e valuta (valore a seconda della complessita della cell)
 <br>
 <br>
 
 # FASE SPACES
+
 studiare andamento differenziale di un iniaziale stato randomico secondo le regole delle cellular automata
