@@ -68,47 +68,6 @@ def render(m):
     clock.tick(FRAMES)
 
 
-def neigCount(m, x, y):
-    sum = 0
-    for i in range(-1, 2):
-        for j in range(-1, 2):
-            col = (x + i + COLS) % COLS
-            row = (y + j + ROWS) % ROWS
-            sum += m[col, row]
-
-    sum -= m[x, y]
-
-    return sum
-
-
-def nextState_CPU(prevMatx):
-    nextMatx = np.copy(prevMatx)
-
-    # rules
-    for i in range(prevMatx.shape[0]):
-        for j in range(prevMatx.shape[1]):
-
-            sum = 0
-            for x in range(-1, 2):
-                for y in range(-1, 2):
-                    col = (x + i + COLS) % COLS
-                    row = (y + j + ROWS) % ROWS
-                    sum += prevMatx[col, row]
-
-            sum -= prevMatx[i, j]
-
-            neighbours = sum
-
-            if prevMatx[i, j] == 1:
-                if neighbours < 2 or neighbours > 3:
-                    nextMatx[i, j] = 0
-            else:
-                if neighbours == 3:
-                    nextMatx[i, j] = 1
-
-    return nextMatx
-
-
 @cuda.jit
 def nextState(m, buffer):
 
