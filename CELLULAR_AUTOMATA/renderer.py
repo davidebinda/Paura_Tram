@@ -223,10 +223,5 @@ while running:
     # i have the power of god and gpu on my side
     nextState[blockspergrid, threadsperblock](matrix, bufferMatx)
 
-    # bufferMatx = nextState_CPU(matrix)
-
     # switch mtx and buffer
     matrix = bufferMatx
-
-    # running = False
-    # time.sleep(5)
