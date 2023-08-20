@@ -218,6 +218,16 @@ while running:
                 filesIndex = (filesIndex - 1) % len(files)
                 loadSSV("SSV/" + files[filesIndex][:-4] + ".ssv")
                 file = files[filesIndex][:-4]
+            elif event.key == pygame.K_PLUS:
+                V_RES += 1
+                V_COLS = int(WIDTH/V_RES)
+                V_ROWS = int(HEIGHT/V_RES)
+            elif event.key == pygame.K_MINUS:
+                V_RES -= 1
+                if V_RES < RES:
+                    V_RES = RES
+                V_COLS = int(WIDTH/V_RES)
+                V_ROWS = int(HEIGHT/V_RES)
 
     # movement handler
     keys = pygame.key.get_pressed()
@@ -229,11 +239,12 @@ while running:
         matrix = np.roll(matrix, +2, axis=0)
     if keys[pygame.K_d] == True:
         matrix = np.roll(matrix, -2, axis=0)
-    if keys[pygame.K_PLUS] == True:
+    # FAST ZOOM
+    if keys[pygame.K_PLUS] == True and keys[pygame.K_LCTRL] == True:
         V_RES += 1
         V_COLS = int(WIDTH/V_RES)
         V_ROWS = int(HEIGHT/V_RES)
-    if keys[pygame.K_MINUS] == True:
+    if keys[pygame.K_MINUS] == True and keys[pygame.K_LCTRL] == True:
         V_RES -= 1
         if V_RES < RES:
             V_RES = RES

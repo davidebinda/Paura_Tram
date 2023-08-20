@@ -1,12 +1,9 @@
+import wget
 
-values = []
+URL = input('[RLE LINK] --> ')
+fileName = input('[FILE NAME] --> ')
 
-with open("test.ssv", "r") as f:
-    lines = f.readlines()
-
-    for i in range(len(lines)):
-        lines[i] = lines[i].replace('\n', '')
-        line = lines[i].split(' ')
-        values.append(line)
-
-print(values)
+if fileName == '':
+    response = wget.download(URL, 'SSV\RLEs')
+else:
+    response = wget.download(URL, 'SSV\RLEs\\'+fileName+'.rle')
