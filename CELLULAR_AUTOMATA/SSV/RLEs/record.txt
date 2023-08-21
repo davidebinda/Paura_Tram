@@ -1,4 +1,3 @@
-glider.rle
 double_glider.rle
 110P62.rle
 coso.rle
@@ -10,3 +9,4 @@ spaceship_types.rle
 nave_tridente.rle
 gliders-collisions.rle
 eye.rle
+glider.rle

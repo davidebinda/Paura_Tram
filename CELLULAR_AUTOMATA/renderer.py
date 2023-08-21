@@ -7,7 +7,7 @@ from numba import cuda
 WIDTH = 1600
 HEIGHT = 890
 SCREEN_REALESTATE = (WIDTH, HEIGHT)
-RES = 2
+RES = 10
 COLS = int(WIDTH/RES)
 ROWS = int(HEIGHT/RES)
 V_RES = RES
@@ -93,6 +93,20 @@ def nextState(m, buffer):
                 buffer[i, j] = 1
 
 
+@cuda.jit
+def growthFunc(buffer, convoluted):
+    i, j = cuda.grid(2)
+    if i < buffer.shape[0] and j < buffer.shape[1]:
+        if convoluted[i, j] < 2.:
+            buffer[i, j] = -1.
+        elif convoluted[i, j] >= 2. and convoluted[i, j] < 3.:
+            buffer[i, j] = 0.
+        elif convoluted[i, j] >= 3. and convoluted[i, j] < 4.:
+            buffer[i, j] = 1.
+        else:
+            buffer[i, j] = -1.
+
+
 def loadSSV(file):
     # try:
     values = []
@@ -160,6 +174,7 @@ loadSSV("SSV/" + file + ".ssv")
 kernel = cp.array([[1., 1., 1.], [1., 0., 1.], [1., 1., 1.]])
 
 # OMG THE LOOP WOW SO COOL
+p = True
 running = True
 while running:
     # gets inputs
@@ -231,7 +246,16 @@ while running:
     blockspergrid = (blockspergrid_x, blockspergrid_y)
 
     # i have the power of god and gpu on my side
-    nextState[blockspergrid, threadsperblock](matrix, bufferMatx)
+    # nextState[blockspergrid, threadsperblock](matrix, bufferMatx)
+    growthFunc[blockspergrid, threadsperblock](bufferMatx, convMatx)
 
-    # switch mtx and buffer
-    matrix = bufferMatx
+    deltaT = 1.
+    # introcuces delta time and sums up everything then clips beteen o and 1
+    matrix = matrix + (bufferMatx * deltaT)
+    matrix = cp.clip(matrix, 0., 1.)
+
+    if p:
+        print(convMatx)
+        print(bufferMatx)
+        print(matrix)
+        p = False
