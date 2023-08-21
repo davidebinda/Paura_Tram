@@ -8,5 +8,5 @@ star.rle
 deviators.rle
 spaceship_types.rle
 nave_tridente.rle
-eye.rle
 gliders-collisions.rle
+eye.rle

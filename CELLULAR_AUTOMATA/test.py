@@ -1,16 +1,15 @@
-import pygame
-import cupyx.scipy.signal as sn
+'''import pygame
+import time
 import numpy as np
-import cupy as cp
 from numba import cuda
 
 WIDTH = 1600
 HEIGHT = 890
 SCREEN_REALESTATE = (WIDTH, HEIGHT)
-RES = 2
+RES = 1
 COLS = int(WIDTH/RES)
 ROWS = int(HEIGHT/RES)
-V_RES = RES
+V_RES = 2
 V_COLS = int(WIDTH/V_RES)
 V_ROWS = int(HEIGHT/V_RES)
 
@@ -37,19 +36,11 @@ def fps_counter():
 
 def render(m):
     screenarray = np.zeros((V_COLS, V_ROWS, 3))
-    m = m.get()
 
     y_min = int(np.floor((ROWS - V_ROWS) / 2))
     y_max = y_min + V_ROWS
     x_min = int(np.floor((COLS - V_COLS) / 2))
     x_max = x_min + V_COLS
-
-    '''print('ROWS ', ROWS, '\tCOLS ', COLS)
-    print('V_ROWS ', V_ROWS, '\tV_COLS ', V_COLS)
-    print('x: ', x_min, x_max)
-    print('y: ', y_min, y_max)
-    print('screen ', screenarray.shape[0],
-          screenarray.shape[1], '\tmatrix ', m.shape[0], m.shape[1])'''
 
     screenarray[:, :, 0] = m[x_min:x_max, y_min:y_max] * 255.0
     screenarray[:, :, 1] = m[x_min:x_max, y_min:y_max] * 255.0
@@ -100,7 +91,7 @@ def loadSSV(file):
     with open(file, "r") as f:
         # black matrix
         global matrix
-        matrix = cp.round(cp.random.random((COLS, ROWS)))
+        matrix = np.round(np.random.random((COLS, ROWS)))
         matrix[:, :] = 0.
 
         lines = f.readlines()
@@ -141,7 +132,7 @@ def loadSSV(file):
 #####################################################################
 
 
-# by default loads last SSV added to record
+# by defsult load last SSV added to record
 files = []
 filesIndex = -1
 with open('SSV/RLEs/record.txt', 'r') as f:
@@ -155,83 +146,101 @@ print('[SIMULATING LAST ADDED TO RECORD]->', file)
 # loads default SSV file
 loadSSV("SSV/" + file + ".ssv")
 
-
-# KERNEL BE LIKE
-kernel = cp.array([[1., 1., 1.], [1., 0., 1.], [1., 1., 1.]])
-
-# OMG THE LOOP WOW SO COOL
 running = True
 while running:
-    # gets inputs
-    if True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
 
-            # keyboard inputs
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_r:
-                    matrix = cp.round(cp.random.random((COLS, ROWS)))
-                    file = ''
-                elif event.key == pygame.K_DOWN:
-                    # loads next SSV from record
-                    filesIndex = (filesIndex + 1) % len(files)
-                    loadSSV("SSV/" + files[filesIndex][:-4] + ".ssv")
-                    file = files[filesIndex][:-4]
-                elif event.key == pygame.K_UP:
-                    # loads next SSV from record
-                    filesIndex = (filesIndex - 1) % len(files)
-                    loadSSV("SSV/" + files[filesIndex][:-4] + ".ssv")
-                    file = files[filesIndex][:-4]
-                elif event.key == pygame.K_PLUS:
-                    V_RES += 1
-                    V_COLS = int(WIDTH/V_RES)
-                    V_ROWS = int(HEIGHT/V_RES)
-                elif event.key == pygame.K_MINUS:
-                    V_RES -= 1
-                    if V_RES < RES:
-                        V_RES = RES
-                    V_COLS = int(WIDTH/V_RES)
-                    V_ROWS = int(HEIGHT/V_RES)
+        # keyboard inputs
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_r:
+                matrix = np.round(np.random.random((COLS, ROWS)))
+                file = ''
+            elif event.key == pygame.K_DOWN:
+                # loads next SSV from record
+                filesIndex = (filesIndex + 1) % len(files)
+                loadSSV("SSV/" + files[filesIndex][:-4] + ".ssv")
+                file = files[filesIndex][:-4]
+            elif event.key == pygame.K_UP:
+                # loads next SSV from record
+                filesIndex = (filesIndex - 1) % len(files)
+                loadSSV("SSV/" + files[filesIndex][:-4] + ".ssv")
+                file = files[filesIndex][:-4]
+            elif event.key == pygame.K_PLUS:
+                V_RES += 1
+                V_COLS = int(WIDTH/V_RES)
+                V_ROWS = int(HEIGHT/V_RES)
+            elif event.key == pygame.K_MINUS:
+                V_RES -= 1
+                if V_RES < RES:
+                    V_RES = RES
+                V_COLS = int(WIDTH/V_RES)
+                V_ROWS = int(HEIGHT/V_RES)
 
-        # movement handler
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_w] == True:
-            matrix = cp.roll(matrix, +2, axis=1)
-        if keys[pygame.K_s] == True:
-            matrix = cp.roll(matrix, -2, axis=1)
-        if keys[pygame.K_a] == True:
-            matrix = cp.roll(matrix, +2, axis=0)
-        if keys[pygame.K_d] == True:
-            matrix = cp.roll(matrix, -2, axis=0)
-        # FAST ZOOM
-        if keys[pygame.K_PLUS] == True and keys[pygame.K_LCTRL] == True:
-            V_RES += 1
-            V_COLS = int(WIDTH/V_RES)
-            V_ROWS = int(HEIGHT/V_RES)
-        if keys[pygame.K_MINUS] == True and keys[pygame.K_LCTRL] == True:
-            V_RES -= 1
-            if V_RES < RES:
-                V_RES = RES
-            V_COLS = int(WIDTH/V_RES)
-            V_ROWS = int(HEIGHT/V_RES)
+    # movement handler
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_w] == True:
+        matrix = np.roll(matrix, +2, axis=1)
+    if keys[pygame.K_s] == True:
+        matrix = np.roll(matrix, -2, axis=1)
+    if keys[pygame.K_a] == True:
+        matrix = np.roll(matrix, +2, axis=0)
+    if keys[pygame.K_d] == True:
+        matrix = np.roll(matrix, -2, axis=0)
+    # FAST ZOOM
+    if keys[pygame.K_PLUS] == True and keys[pygame.K_LCTRL] == True:
+        V_RES += 1
+        V_COLS = int(WIDTH/V_RES)
+        V_ROWS = int(HEIGHT/V_RES)
+    if keys[pygame.K_MINUS] == True and keys[pygame.K_LCTRL] == True:
+        V_RES -= 1
+        if V_RES < RES:
+            V_RES = RES
+        V_COLS = int(WIDTH/V_RES)
+        V_ROWS = int(HEIGHT/V_RES)
 
-    # renders the matrix
+    # copia mtx in buffer per dopo e renderizza mtx
+    bufferMatx = np.copy(matrix)
     render(matrix)
-
-    # copia mtx in buffer e fa convoluzione
-    bufferMatx = cp.copy(matrix)
-
-    convMatx = sn.convolve2d(matrix, kernel, mode='same', boundary='wrap')
 
     # CUDASHIT
     threadsperblock = (32, 32)
-    blockspergrid_x = int(cp.ceil(COLS / threadsperblock[0]))
-    blockspergrid_y = int(cp.ceil(ROWS / threadsperblock[1]))
+    blockspergrid_x = int(np.ceil(COLS / threadsperblock[0]))
+    blockspergrid_y = int(np.ceil(ROWS / threadsperblock[1]))
     blockspergrid = (blockspergrid_x, blockspergrid_y)
 
     # i have the power of god and gpu on my side
     nextState[blockspergrid, threadsperblock](matrix, bufferMatx)
 
     # switch mtx and buffer
-    matrix = bufferMatx
+    matrix = bufferMatx'''
+import cupyx.scipy.signal as cupySN
+import numpy as np
+import scipy.signal as numpySN
+import cupy as cp
+import time
+
+matrix = np.ones((100, 100))
+kernel = np.zeros((10, 10))
+
+start = time.time()
+
+for i in range(1000):
+    d_matrix = cp.ndarray(matrix)
+    d_kernel = cp.ndarray(kernel)
+    convMatx = cupySN.convolve2d(
+        d_matrix, d_kernel, mode='same', boundary='wrap')
+
+print('TEMPO to_device : ', time.time() - start)
+
+
+matrix = cp.ones((100, 100))
+kernel = cp.array([[0., 0., 0.], [0., 0., 0.], [0., 0., 0.]])
+
+start = time.time()
+for i in range(1000):
+
+    convMatx = cupySN.convolve2d(matrix, kernel, mode='same', boundary='wrap')
+
+print('TEMPO GPU : ', time.time() - start)
