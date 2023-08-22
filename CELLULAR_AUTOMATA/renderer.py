@@ -6,6 +6,8 @@ from numba import cuda
 
 WIDTH = 1600
 HEIGHT = 890
+'''WIDTH = 500
+HEIGHT = 500'''
 SCREEN_REALESTATE = (WIDTH, HEIGHT)
 RES = 10
 COLS = int(WIDTH/RES)
@@ -71,29 +73,6 @@ def render(m):
 
 
 @cuda.jit
-def nextState(m, buffer):
-
-    i, j = cuda.grid(2)
-    if i < buffer.shape[0] and j < buffer.shape[1]:
-
-        neighbours = 0
-        for x in range(-1, 2):
-            for y in range(-1, 2):
-                col = (i + x + COLS) % COLS
-                row = (j + y + ROWS) % ROWS
-                neighbours += m[col, row]
-
-        neighbours -= m[i, j]
-
-        if m[i, j] == 1:
-            if neighbours < 2 or neighbours > 3:
-                buffer[i, j] = 0
-        else:
-            if neighbours == 3:
-                buffer[i, j] = 1
-
-
-@cuda.jit
 def growthFunc(buffer, convoluted):
     i, j = cuda.grid(2)
     if i < buffer.shape[0] and j < buffer.shape[1]:
@@ -107,15 +86,12 @@ def growthFunc(buffer, convoluted):
             buffer[i, j] = -1.
 
 
-def loadSSV(file):
+# loads ssv | mode: k = kernel, m = matrix
+def loadSSV(file, mode):
     # try:
     values = []
 
     with open(file, "r") as f:
-        # black matrix
-        global matrix
-        matrix = cp.round(cp.random.random((COLS, ROWS)))
-        matrix[:, :] = 0.
 
         lines = f.readlines()
 
@@ -135,22 +111,35 @@ def loadSSV(file):
             line = [float(s) for s in line]
             values.append(line)
 
-    matxCenter = (
-        int(COLS/2) - int(width/2),
-        int(ROWS/2) - int(height/2))
+    if mode == 'm':
+        # black matrix
+        m = cp.zeros((COLS, ROWS))
 
-    # print('values ', len(values))
-    # print(f'x: {len(values[0])}, y: {len(values)}')
+        matxCenter = (
+            # il meno 1 qui sotto serve perche sono un pirla e ho
+            # fatto na cosa nel convertitore rle ssv che nn mi ricordo
+            # come cambiare quindi ho messo questo qui nn se ne accorgerà mai nessuno
+            int(COLS/2) - int(width/2) - 1,
+            int(ROWS/2) - int(height/2))
 
-    for i in range(len(values)):
-        for j in range(len(values[i])):
-            x = (matxCenter[1] + i + ROWS) % ROWS
-            y = (matxCenter[0] + j + COLS) % COLS
+        for i in range(len(values)):
+            for j in range(len(values[i])):
+                x = (matxCenter[1] + i + ROWS) % ROWS
+                y = (matxCenter[0] + j + COLS) % COLS
 
-            matrix[y, x] = values[i][j]
+                m[y, x] = values[i][j]
 
+    elif mode == 'k':
+        # black matrix
+        m = cp.zeros((width, height))
+
+        for i in range(height):
+            for j in range(width):
+                m[j, i] = values[i][j]
+
+    return m
     # except:
-        # print('[NO SSV FILE -> RANDOM MODE]')
+    # print('[NO SSV FILE -> RANDOM MODE]')
 
 #####################################################################
 
@@ -167,11 +156,11 @@ file = files[filesIndex][:-4]
 print('[SIMULATING LAST ADDED TO RECORD]->', file)
 
 # loads default SSV file
-loadSSV("SSV/" + file + ".ssv")
+matrix = loadSSV("SSV/" + file + ".ssv", mode='m')
 
 
 # KERNEL BE LIKE
-kernel = cp.array([[1., 1., 1.], [1., 0., 1.], [1., 1., 1.]])
+kernel = loadSSV('SSV/KERNELs/GOL.kernel.ssv', mode='k')
 
 # OMG THE LOOP WOW SO COOL
 p = True
@@ -191,12 +180,14 @@ while running:
                 elif event.key == pygame.K_DOWN:
                     # loads next SSV from record
                     filesIndex = (filesIndex + 1) % len(files)
-                    loadSSV("SSV/" + files[filesIndex][:-4] + ".ssv")
+                    matrix = loadSSV(
+                        "SSV/" + files[filesIndex][:-4] + ".ssv", mode='m')
                     file = files[filesIndex][:-4]
                 elif event.key == pygame.K_UP:
                     # loads next SSV from record
                     filesIndex = (filesIndex - 1) % len(files)
-                    loadSSV("SSV/" + files[filesIndex][:-4] + ".ssv")
+                    matrix = loadSSV(
+                        "SSV/" + files[filesIndex][:-4] + ".ssv", mode='m')
                     file = files[filesIndex][:-4]
                 elif event.key == pygame.K_PLUS:
                     V_RES += 1
@@ -231,6 +222,8 @@ while running:
             V_COLS = int(WIDTH/V_RES)
             V_ROWS = int(HEIGHT/V_RES)
 
+    if p:
+        print('[PRE matrix]\n', matrix)
     # renders the matrix
     render(matrix)
 
@@ -246,7 +239,6 @@ while running:
     blockspergrid = (blockspergrid_x, blockspergrid_y)
 
     # i have the power of god and gpu on my side
-    # nextState[blockspergrid, threadsperblock](matrix, bufferMatx)
     growthFunc[blockspergrid, threadsperblock](bufferMatx, convMatx)
 
     deltaT = 1.
@@ -255,7 +247,8 @@ while running:
     matrix = cp.clip(matrix, 0., 1.)
 
     if p:
-        print(convMatx)
-        print(bufferMatx)
-        print(matrix)
+        print('[POST matrix]\n', matrix)
+        print('[CONV]\n', convMatx)
+        print('[BUFFER]\n', bufferMatx)
+        print('[KERNEL]\n', kernel)
         p = False
