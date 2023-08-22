@@ -163,8 +163,11 @@ matrix = loadSSV("SSV/" + file + ".ssv", mode='m')
 kernel = loadSSV('SSV/KERNELs/GOL.kernel.ssv', mode='k')
 
 # OMG THE LOOP WOW SO COOL
+prevMat = cp.copy(matrix)
 p = True
 running = True
+paused = True
+forwOnes = False
 while running:
     # gets inputs
     if True:
@@ -174,7 +177,20 @@ while running:
 
             # keyboard inputs
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_r:
+                if event.key == pygame.K_SPACE:
+                    # pauses simulation
+                    paused = not paused
+
+                elif event.key == pygame.K_RIGHT:
+                    # goes one step forward
+                    paused = False
+                    forwOnes = True
+
+                elif event.key == pygame.K_LEFT:
+                    # goes as many steps back as in memory
+                    matrix = cp.copy(prevMat)
+
+                elif event.key == pygame.K_r:
                     matrix = cp.round(cp.random.random((COLS, ROWS)))
                     file = ''
                 elif event.key == pygame.K_DOWN:
@@ -183,12 +199,18 @@ while running:
                     matrix = loadSSV(
                         "SSV/" + files[filesIndex][:-4] + ".ssv", mode='m')
                     file = files[filesIndex][:-4]
+                    pastMemories = []
+                    pastIndex = -1
+
                 elif event.key == pygame.K_UP:
                     # loads next SSV from record
                     filesIndex = (filesIndex - 1) % len(files)
                     matrix = loadSSV(
                         "SSV/" + files[filesIndex][:-4] + ".ssv", mode='m')
                     file = files[filesIndex][:-4]
+                    pastMemories = []
+                    pastIndex = -1
+
                 elif event.key == pygame.K_PLUS:
                     V_RES += 1
                     V_COLS = int(WIDTH/V_RES)
@@ -223,9 +245,7 @@ while running:
             V_ROWS = int(HEIGHT/V_RES)
 
     if p:
-        print('[PRE matrix]\n', matrix)
-    # renders the matrix
-    render(matrix)
+        print('[MATRIX]\n', matrix)
 
     # copia mtx in buffer e fa convoluzione
     bufferMatx = cp.copy(matrix)
@@ -243,11 +263,26 @@ while running:
 
     deltaT = 1.
     # introcuces delta time and sums up everything then clips beteen o and 1
-    matrix = matrix + (bufferMatx * deltaT)
-    matrix = cp.clip(matrix, 0., 1.)
+    nextMatx = matrix + (bufferMatx * deltaT)
+    nextMatx = cp.clip(nextMatx, 0., 1.)
+
+    # if program is not paused
+    if not paused:
+        # saves prevoious state in memory
+        prevMat = cp.copy(matrix)
+
+        # updates matrix
+        matrix = cp.copy(nextMatx)
+
+        if forwOnes:  # handles taking only one step
+            forwOnes = not forwOnes
+            paused = True
+
+    # renders the matrix
+    render(matrix)
 
     if p:
-        print('[POST matrix]\n', matrix)
+        print('[NEXT MATRIX]\n', nextMatx)
         print('[CONV]\n', convMatx)
         print('[BUFFER]\n', bufferMatx)
         print('[KERNEL]\n', kernel)
