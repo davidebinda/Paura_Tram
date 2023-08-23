@@ -3,18 +3,20 @@ import cupyx.scipy.signal as sn
 import numpy as np
 import cupy as cp
 from numba import cuda
+from rules import GROWTHS
 
 WIDTH = 1600
 HEIGHT = 890
-WIDTH = 500
-HEIGHT = 500
+'''WIDTH = 500
+HEIGHT = 500'''
 SCREEN_REALESTATE = (WIDTH, HEIGHT)
-RES = 100
+RES = 10
 COLS = int(WIDTH/RES)
 ROWS = int(HEIGHT/RES)
 V_RES = RES
 V_COLS = int(WIDTH/V_RES)
 V_ROWS = int(HEIGHT/V_RES)
+GROWTH_FUNC = 'B3_S23'
 
 print('[NUMBER OF CELLS] ', COLS*ROWS)
 print('[MATRIX DIMS] ', COLS, ' x ', ROWS)
@@ -37,6 +39,7 @@ def fps_counter():
 #####################################################################
 
 
+# well... it renders
 def render(m):
     screenarray = np.zeros((V_COLS, V_ROWS, 3))
     m = m.get()
@@ -70,21 +73,6 @@ def render(m):
 
     pygame.display.flip()
     clock.tick(FRAMES)
-
-
-@cuda.jit
-def growthFunc(buffer, convoluted, somK):
-    i, j = cuda.grid(2)
-    if i < buffer.shape[0] and j < buffer.shape[1]:
-        x = convoluted[i, j] / somK
-        if x < 2./somK:
-            buffer[i, j] = -1.
-        elif x >= 2./8 and x < 3./somK:
-            buffer[i, j] = 0.
-        elif x >= 3./8 and x < 4./somK:
-            buffer[i, j] = 1.
-        else:
-            buffer[i, j] = -1.
 
 
 # loads ssv | mode: k = kernel, m = matrix
@@ -160,8 +148,6 @@ print('[SIMULATING LAST ADDED TO RECORD]->', file)
 
 # loads default SSV file
 matrix = loadSSV("SSV/" + file + ".ssv", mode='m')
-
-
 # KERNEL BE LIKE
 kernel, somK = loadSSV('SSV/KERNELs/GOL.kernel.ssv', mode='k')
 
@@ -262,7 +248,8 @@ while running:
     blockspergrid = (blockspergrid_x, blockspergrid_y)
 
     # i have the power of god and gpu on my side
-    growthFunc[blockspergrid, threadsperblock](bufferMatx, convMatx, somK)
+    GROWTHS[GROWTH_FUNC][blockspergrid, threadsperblock](
+        bufferMatx, convMatx, somK)
 
     deltaT = 1.
     # introcuces delta time and sums up everything then clips beteen o and 1

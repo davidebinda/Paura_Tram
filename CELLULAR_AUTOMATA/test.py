@@ -215,32 +215,24 @@ while running:
 
     # switch mtx and buffer
     matrix = bufferMatx'''
-import cupyx.scipy.signal as cupySN
-import numpy as np
-import scipy.signal as numpySN
-import cupy as cp
-import time
-
-matrix = np.ones((100, 100))
-kernel = np.zeros((10, 10))
-
-start = time.time()
-
-for i in range(1000):
-    d_matrix = cp.ndarray(matrix)
-    d_kernel = cp.ndarray(kernel)
-    convMatx = cupySN.convolve2d(
-        d_matrix, d_kernel, mode='same', boundary='wrap')
-
-print('TEMPO to_device : ', time.time() - start)
 
 
-matrix = cp.ones((100, 100))
-kernel = cp.array([[0., 0., 0.], [0., 0., 0.], [0., 0., 0.]])
+def p1():
+    print('pusy')
 
-start = time.time()
-for i in range(1000):
 
-    convMatx = cupySN.convolve2d(matrix, kernel, mode='same', boundary='wrap')
+def p2():
+    print('caca')
 
-print('TEMPO GPU : ', time.time() - start)
+
+myDict = {
+    "P1": p1,
+    "P2": p2,
+}
+
+
+def myMain(name):
+    myDict[name]()
+
+
+myMain('P1')
