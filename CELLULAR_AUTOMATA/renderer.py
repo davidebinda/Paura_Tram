@@ -6,10 +6,10 @@ from numba import cuda
 
 WIDTH = 1600
 HEIGHT = 890
-'''WIDTH = 500
-HEIGHT = 500'''
+WIDTH = 500
+HEIGHT = 500
 SCREEN_REALESTATE = (WIDTH, HEIGHT)
-RES = 10
+RES = 100
 COLS = int(WIDTH/RES)
 ROWS = int(HEIGHT/RES)
 V_RES = RES
@@ -73,14 +73,15 @@ def render(m):
 
 
 @cuda.jit
-def growthFunc(buffer, convoluted):
+def growthFunc(buffer, convoluted, somK):
     i, j = cuda.grid(2)
     if i < buffer.shape[0] and j < buffer.shape[1]:
-        if convoluted[i, j] < 2.:
+        x = convoluted[i, j] / somK
+        if x < 2./somK:
             buffer[i, j] = -1.
-        elif convoluted[i, j] >= 2. and convoluted[i, j] < 3.:
+        elif x >= 2./8 and x < 3./somK:
             buffer[i, j] = 0.
-        elif convoluted[i, j] >= 3. and convoluted[i, j] < 4.:
+        elif x >= 3./8 and x < 4./somK:
             buffer[i, j] = 1.
         else:
             buffer[i, j] = -1.
@@ -129,6 +130,8 @@ def loadSSV(file, mode):
 
                 m[y, x] = values[i][j]
 
+        return m
+
     elif mode == 'k':
         # black matrix
         m = cp.zeros((width, height))
@@ -137,7 +140,7 @@ def loadSSV(file, mode):
             for j in range(width):
                 m[j, i] = values[i][j]
 
-    return m
+        return m, 8.
     # except:
     # print('[NO SSV FILE -> RANDOM MODE]')
 
@@ -160,7 +163,7 @@ matrix = loadSSV("SSV/" + file + ".ssv", mode='m')
 
 
 # KERNEL BE LIKE
-kernel = loadSSV('SSV/KERNELs/GOL.kernel.ssv', mode='k')
+kernel, somK = loadSSV('SSV/KERNELs/GOL.kernel.ssv', mode='k')
 
 # OMG THE LOOP WOW SO COOL
 prevMat = cp.copy(matrix)
@@ -259,7 +262,7 @@ while running:
     blockspergrid = (blockspergrid_x, blockspergrid_y)
 
     # i have the power of god and gpu on my side
-    growthFunc[blockspergrid, threadsperblock](bufferMatx, convMatx)
+    growthFunc[blockspergrid, threadsperblock](bufferMatx, convMatx, somK)
 
     deltaT = 1.
     # introcuces delta time and sums up everything then clips beteen o and 1
@@ -270,7 +273,6 @@ while running:
     if not paused:
         # saves prevoious state in memory
         prevMat = cp.copy(matrix)
-
         # updates matrix
         matrix = cp.copy(nextMatx)
 
