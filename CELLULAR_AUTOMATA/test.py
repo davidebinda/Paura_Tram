@@ -217,22 +217,59 @@ while running:
     matrix = bufferMatx'''
 
 
-def p1():
-    print('pusy')
+from matplotlib import pyplot as mp
+import numpy as np
 
 
-def p2():
-    print('caca')
+# RASTERIZING CONTINUOS FUNCTION
+R = 5
+
+c = np.floor(((R)*2+1)/2)
+center = (c, c)
+print(center)
 
 
-myDict = {
-    "P1": p1,
-    "P2": p2,
-}
+def gaussianBump(r):
+
+    k = 4 * r * (1-r)
+    alpha = 4
+    return np.exp(alpha * (1 - (1/k)))
 
 
-def myMain(name):
-    myDict[name]()
+matrix = np.ones((R*2 + 1, R*2 + 1))
+dists = np.array(())
+
+with open('k.txt', 'w') as f:
+    f.write('')
+
+for y, l in enumerate(matrix):
+    for x, c in enumerate(matrix[y]):
+
+        dX = np.abs(x-center[0])
+        dY = np.abs(y-center[1])
+        distance = np.sqrt(dX**2 + dY**2)
+        distNorm = np.round(distance / R, 4)
+
+        if distNorm <= 1.:
+            dists = np.append(dists, distNorm)
+            matrix[y, x] = np.round(gaussianBump(distNorm), 4)
+        else:
+            matrix[y, x] = 0.
+
+        # print(distNorm, matrix[y, x])
+        with open('k.txt', 'a') as f:
+            f.write(f'{matrix[y, x]}'.ljust(10))
+    with open('k.txt', 'a') as f:
+        f.write('\n')
 
 
-myMain('P1')
+print('[MATRIX]\n', matrix)
+print('[DISTS]\n', dists)
+
+
+# radius = np.linspace(0, 1, 10)
+mp.scatter(dists, gaussianBump(dists))
+
+mp.show()
+
+print('[END]')
