@@ -1,7 +1,7 @@
 from numba import cuda
 
 
-@cuda.jit
+@cuda.jit  # THE ORIGINAL THE LEGEND
 def B3_S23(buffer, convoluted, somK):
     i, j = cuda.grid(2)
     if i < buffer.shape[0] and j < buffer.shape[1]:
@@ -20,15 +20,7 @@ def B3_S23(buffer, convoluted, somK):
 def smoothLife(buffer, convoluted, somK):
     i, j = cuda.grid(2)
     if i < buffer.shape[0] and j < buffer.shape[1]:
-        x = convoluted[i, j] / somK
-        if x < 2./somK:
-            buffer[i, j] = -1.
-        elif x >= 2./8 and x < 3./somK:
-            buffer[i, j] = 0.
-        elif x >= 3./8 and x < 5./somK:
-            buffer[i, j] = 1.
-        else:
-            buffer[i, j] = -1.
+        pass
 
 
 GROWTHS = {'B3_S23': B3_S23, 'smooth': smoothLife}

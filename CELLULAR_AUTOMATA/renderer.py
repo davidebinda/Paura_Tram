@@ -78,7 +78,6 @@ def render(m):
 # loads ssv | mode: k = kernel, m = matrix
 def loadSSV(file, mode):
     # try:
-
     values = []
 
     with open(file, "r") as f:
@@ -129,7 +128,7 @@ def loadSSV(file, mode):
             for j in range(width):
                 m[j, i] = values[i][j]
 
-        return m, int(np.sum(m))
+        return m, 8.
     # except:
     # print('[NO SSV FILE -> RANDOM MODE]')
 
@@ -151,7 +150,6 @@ print('[SIMULATING LAST ADDED TO RECORD]->', file)
 matrix = loadSSV("SSV/" + file + ".ssv", mode='m')
 # KERNEL BE LIKE
 kernel, somK = loadSSV('SSV/KERNELs/GOL.kernel.ssv', mode='k')
-print('[SOMK] ', somK)
 
 # OMG THE LOOP WOW SO COOL
 prevMat = cp.copy(matrix)
