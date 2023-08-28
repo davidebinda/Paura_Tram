@@ -5,19 +5,21 @@ import cupy as cp
 from numba import cuda
 from rules import GROWTHS
 from matplotlib import cm
+from tost import rasterize
 
 WIDTH = 1600
 HEIGHT = 890
-'''WIDTH = 500
-HEIGHT = 500'''
+WIDTH = 1100
+HEIGHT = 600
 SCREEN_REALESTATE = (WIDTH, HEIGHT)
-RES = 10
+RES = 2
 COLS = int(WIDTH/RES)
 ROWS = int(HEIGHT/RES)
 V_RES = RES
 V_COLS = int(WIDTH/V_RES)
 V_ROWS = int(HEIGHT/V_RES)
 GROWTH_FUNC = 'B3_S23'
+GROWTH_FUNC = 'lenia'
 
 COLOR_PRECISION = 10000
 COLORS = cm.jet(np.linspace(0, 1, COLOR_PRECISION))
@@ -161,7 +163,7 @@ def loadSSV(file, mode):
             for j in range(width):
                 m[j, i] = values[i][j]
 
-        return m, 8.
+        return m, float(cp.sum(m))
     # except:
     # print('[NO SSV FILE -> RANDOM MODE]')
 
@@ -183,6 +185,12 @@ print('[SIMULATING LAST ADDED TO RECORD]->', file)
 matrix = loadSSV("SSV/" + file + ".ssv", mode='m')
 # KERNEL BE LIKE
 kernel, somK = loadSSV('SSV/KERNELs/GOL.kernel.ssv', mode='k')
+
+##########################################
+
+kernel, somK = rasterize()
+
+#########################################
 
 # OMG THE LOOP WOW SO COOL
 prevMat = cp.copy(matrix)
@@ -282,9 +290,9 @@ while running:
 
     # i have the power of god and gpu on my side
     GROWTHS[GROWTH_FUNC][blockspergrid, threadsperblock](
-        bufferMatx, convMatx, somK)
+        bufferMatx, convMatx, somK, cp.array(()))
 
-    deltaT = 1.
+    deltaT = .1
     # introcuces delta time and sums up everything then clips beteen o and 1
     nextMatx = matrix + (bufferMatx * deltaT)
     nextMatx = cp.clip(nextMatx, 0., 1.)

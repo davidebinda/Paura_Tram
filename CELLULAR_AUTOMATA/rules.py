@@ -1,8 +1,10 @@
+import math
 from numba import cuda
+import cupy as cp
 
 
 @cuda.jit  # THE ORIGINAL THE LEGEND
-def B3_S23(buffer, convoluted, somK):
+def B3_S23(buffer, convoluted, somK, args):
     i, j = cuda.grid(2)
     if i < buffer.shape[0] and j < buffer.shape[1]:
         x = convoluted[i, j] / somK  # normalises convolution between 0 and 1
@@ -17,10 +19,23 @@ def B3_S23(buffer, convoluted, somK):
 
 
 @cuda.jit
-def smoothLife(buffer, convoluted, somK):
+def nextKernel(buffer, convoluted, somK, args):
     i, j = cuda.grid(2)
     if i < buffer.shape[0] and j < buffer.shape[1]:
-        pass
+        buffer[i, j] = convoluted[i, j] / somK
 
 
-GROWTHS = {'B3_S23': B3_S23, 'smooth': smoothLife}
+@cuda.jit
+def lenia(buffer, convoluted, somK, args):
+    i, j = cuda.grid(2)
+    if i < buffer.shape[0] and j < buffer.shape[1]:
+        normSom = convoluted[i, j] / somK
+
+        mu = .29
+        sigma = .043
+        l = abs(normSom - mu)
+        k = 2 * sigma**2
+        buffer[i, j] = 2 * math.exp((-l**2) / k) - 1
+
+
+GROWTHS = {'B3_S23': B3_S23, 'nextKernel': nextKernel, 'lenia': lenia}

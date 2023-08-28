@@ -219,57 +219,77 @@ while running:
 
 from matplotlib import pyplot as mp
 import numpy as np
+import cupy as cp
+import math
 
 
-# RASTERIZING CONTINUOS FUNCTION
-R = 5
-
-c = np.floor(((R)*2+1)/2)
-center = (c, c)
-print(center)
-
-
-def gaussianBump(r):
+'''def gaussianBump(r):
 
     k = 4 * r * (1-r)
     alpha = 4
-    return np.exp(alpha * (1 - (1/k)))
+    return np.exp(alpha * (1 - (1/k)))'''
 
 
-matrix = np.ones((R*2 + 1, R*2 + 1))
-dists = np.array(())
+def rasterize():
+    # RASTERIZING CONTINUOS FUNCTION
+    R = 18
 
-with open('k.txt', 'w') as f:
-    f.write('')
+    c = cp.floor(((R)*2+1)/2)
+    center = (c, c)
 
-for y, l in enumerate(matrix):
-    for x, c in enumerate(matrix[y]):
+    matrix = cp.zeros((R*2 + 1, R*2 + 1))
+    dists = cp.array(())
 
-        dX = np.abs(x-center[0])
-        dY = np.abs(y-center[1])
-        distance = np.sqrt(dX**2 + dY**2)
-        distNorm = np.round(distance / R, 4)
+    with open('k.txt', 'w') as f:
+        f.write('')
 
-        if distNorm <= 1.:
-            dists = np.append(dists, distNorm)
-            matrix[y, x] = np.round(gaussianBump(distNorm), 4)
-        else:
-            matrix[y, x] = 0.
+    for y, l in enumerate(matrix):
+        for x, c in enumerate(matrix[y]):
 
-        # print(distNorm, matrix[y, x])
+            dX = cp.abs(x-center[0])
+            dY = cp.abs(y-center[1])
+            distance = cp.sqrt(dX**2 + dY**2)
+            distNorm = cp.round(distance / R, 4)
+
+            if distNorm <= 1.:
+                dists = cp.append(dists, distNorm)
+                k = 4 * distNorm * (1-distNorm)
+                alpha = 8
+                gaus = cp.exp(alpha * (1 - (1/k)))
+                matrix[y, x] = cp.round(gaus, 4)
+            else:
+                matrix[y, x] = 0.
+
+            # print(distNorm, matrix[y, x])
+            with open('k.txt', 'a') as f:
+                f.write(f'{matrix[y, x]}'.ljust(10))
         with open('k.txt', 'a') as f:
-            f.write(f'{matrix[y, x]}'.ljust(10))
-    with open('k.txt', 'a') as f:
-        f.write('\n')
+            f.write('\n')
+
+        som = float(cp.sum(matrix))
+
+    return matrix, som
 
 
-print('[MATRIX]\n', matrix)
-print('[DISTS]\n', dists)
+# rasterize()
 
 
-# radius = np.linspace(0, 1, 10)
-mp.scatter(dists, gaussianBump(dists))
+# print('[MATRIX]\n', matrix)
+# print('[DISTS]\n', dists)
 
+def growth(values):
+    mu = .15
+    sigma = .017
+    arr = np.array(())
+    for n in values:
+        l = abs(n - mu)
+        k = 2 * sigma**2
+        arr = np.append(arr, 2 * math.exp((-l**2) / k) - 1)
+    return arr
+
+
+'''radius = np.linspace(0, 1, 1000)
+mp.scatter(radius, growth(radius))
 mp.show()
 
-print('[END]')
+print('[END RASTER]')'''

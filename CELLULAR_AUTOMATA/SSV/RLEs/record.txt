@@ -10,3 +10,4 @@ nave_tridente.rle
 gliders-collisions.rle
 eye.rle
 glider.rle
+point.rle
