@@ -31,8 +31,8 @@ def lenia(buffer, convoluted, somK, args):
     if i < buffer.shape[0] and j < buffer.shape[1]:
         normSom = convoluted[i, j] / somK
 
-        mu = .29
-        sigma = .043
+        mu = args[0]
+        sigma = args[1]
         l = abs(normSom - mu)
         k = 2 * sigma**2
         buffer[i, j] = 2 * math.exp((-l**2) / k) - 1

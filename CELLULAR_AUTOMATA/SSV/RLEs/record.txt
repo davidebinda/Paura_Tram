@@ -11,3 +11,4 @@ gliders-collisions.rle
 eye.rle
 glider.rle
 point.rle
+lenia_glider.rle

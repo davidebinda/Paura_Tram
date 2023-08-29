@@ -230,9 +230,9 @@ import math
     return np.exp(alpha * (1 - (1/k)))'''
 
 
-def rasterize():
+def rasterize(radius):
     # RASTERIZING CONTINUOS FUNCTION
-    R = 18
+    R = radius
 
     c = cp.floor(((R)*2+1)/2)
     center = (c, c)
@@ -254,7 +254,7 @@ def rasterize():
             if distNorm <= 1.:
                 dists = cp.append(dists, distNorm)
                 k = 4 * distNorm * (1-distNorm)
-                alpha = 8
+                alpha = 4
                 gaus = cp.exp(alpha * (1 - (1/k)))
                 matrix[y, x] = cp.round(gaus, 4)
             else:

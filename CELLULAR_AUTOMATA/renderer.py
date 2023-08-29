@@ -6,13 +6,14 @@ from numba import cuda
 from rules import GROWTHS
 from matplotlib import cm
 from tost import rasterize
+import random
 
 WIDTH = 1600
 HEIGHT = 890
-WIDTH = 1100
-HEIGHT = 600
+'''WIDTH = 1100
+HEIGHT = 600'''
 SCREEN_REALESTATE = (WIDTH, HEIGHT)
-RES = 2
+RES = 5
 COLS = int(WIDTH/RES)
 ROWS = int(HEIGHT/RES)
 V_RES = RES
@@ -36,7 +37,7 @@ pygame.init()
 clock = pygame.time.Clock()
 screen = pygame.display.set_mode(SCREEN_REALESTATE)
 font = pygame.font.SysFont("JetBrains Mono", 18, bold=True)
-FRAMES = 20
+FRAMES = 60
 
 
 def fps_counter():
@@ -45,9 +46,8 @@ def fps_counter():
 
 #####################################################################
 
+
 # get color from jet colormap of cell value
-
-
 @cuda.jit
 def getColors(values, cols):
     i, j = cuda.grid(2)
@@ -55,7 +55,7 @@ def getColors(values, cols):
     if i < values.shape[0] and j < values.shape[1]:
         index = int(values[i, j, 0] * COLOR_PRECISION)
 
-        if index == 10000:  # plz dont bully me for this
+        if index == COLOR_PRECISION:  # plz dont bully me for this
             index -= 1
 
         values[i, j, 0] = cols[index, 0] * 255
@@ -167,6 +167,37 @@ def loadSSV(file, mode):
     # except:
     # print('[NO SSV FILE -> RANDOM MODE]')
 
+
+def sprinkleMatx(r):
+    m = cp.zeros((COLS, ROWS))
+    randArea = cp.random.random((np.clip(r+2, 1, COLS), np.clip(r+2, 1, ROWS)))
+
+    print(f'[M] {m.shape[0]}x{m.shape[1]}')
+    print(f'[randArea] {randArea.shape[0]}x{randArea.shape[1]}')
+
+    mW = m.shape[0]
+    mH = m.shape[1]
+    areaW = randArea.shape[0]
+
+    for i in range(20):
+        xOffset = random.randint(-r*6, r*6)
+        yOffset = random.randint(-r*6, r*6)
+
+        left = (mW // 2) - (areaW // 2) + xOffset
+        left = max(min(left, mW - areaW), 0)
+        right = left + areaW
+        up = (mH // 2) - (areaW // 2) + yOffset
+        up = max(min(up, mH - areaW), 0)
+        down = up + areaW
+
+        print(f'  {up}')
+        print(f'{left}  {right}')
+        print(f'  {down}')
+
+        m[left:right, up:down] = randArea
+
+    return m
+
 #####################################################################
 
 
@@ -183,12 +214,15 @@ print('[SIMULATING LAST ADDED TO RECORD]->', file)
 
 # loads default SSV file
 matrix = loadSSV("SSV/" + file + ".ssv", mode='m')
-# KERNEL BE LIKE
+# KERNEL BE LIKE (not used in lenia mode)
 kernel, somK = loadSSV('SSV/KERNELs/GOL.kernel.ssv', mode='k')
 
 ##########################################
-
-kernel, somK = rasterize()
+# we are using lenia so this is the correct kernel
+mu = .15
+sigma = .017
+kernelRadius = 13
+kernel, somK = rasterize(kernelRadius)
 
 #########################################
 
@@ -221,7 +255,7 @@ while running:
                     matrix = cp.copy(prevMat)
 
                 elif event.key == pygame.K_r:
-                    matrix = cp.random.random((COLS, ROWS))
+                    matrix = sprinkleMatx(kernelRadius)
                     file = ''
                 elif event.key == pygame.K_DOWN:
                     # loads next SSV from record
@@ -290,9 +324,9 @@ while running:
 
     # i have the power of god and gpu on my side
     GROWTHS[GROWTH_FUNC][blockspergrid, threadsperblock](
-        bufferMatx, convMatx, somK, cp.array(()))
+        bufferMatx, convMatx, somK, cp.array((mu, sigma)))
 
-    deltaT = .1
+    deltaT = .05
     # introcuces delta time and sums up everything then clips beteen o and 1
     nextMatx = matrix + (bufferMatx * deltaT)
     nextMatx = cp.clip(nextMatx, 0., 1.)
@@ -315,5 +349,5 @@ while running:
         print('[NEXT MATRIX]\n', nextMatx)
         print('[CONV]\n', convMatx)
         print('[BUFFER]\n', bufferMatx)
-        print('[KERNEL]\n', kernel)
+        # print('[KERNEL]\n', kernel)
         p = False
