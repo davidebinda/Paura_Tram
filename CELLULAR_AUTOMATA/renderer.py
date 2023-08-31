@@ -8,20 +8,33 @@ from matplotlib import cm
 from tost import rasterize
 import random
 
+# SCREEN VARS
 WIDTH = 1600
 HEIGHT = 890
 '''WIDTH = 1100
 HEIGHT = 600'''
 SCREEN_REALESTATE = (WIDTH, HEIGHT)
-RES = 5
+RES = 3
 COLS = int(WIDTH/RES)
 ROWS = int(HEIGHT/RES)
 V_RES = RES
 V_COLS = int(WIDTH/V_RES)
 V_ROWS = int(HEIGHT/V_RES)
-GROWTH_FUNC = 'B3_S23'
-GROWTH_FUNC = 'lenia'
 
+# SIMULATION VARS
+simVar = {
+    'rule': '',  # solo regole speciali per GOL
+    'kEq': '',  # decide quale eq rateriz. per kernel
+    'gEq': '',  # decide quale equazione rasterizzare per growth
+    'mu': .0,
+    'sigma': .0,
+    'kernelRadius': 0,
+    'deltaT': .0
+}
+
+consoleInput = ''
+consoleInputBackup = 'tumadre'
+consoleColor = (220, 220, 220)
 COLOR_PRECISION = 10000
 COLORS = cm.jet(np.linspace(0, 1, COLOR_PRECISION))
 print('[COLOR PALLETTE]\n', COLORS)
@@ -63,68 +76,45 @@ def getColors(values, cols):
         values[i, j, 2] = cols[index, 2] * 255
 
 
-# well... it renders
-def render(m):
-    screenarray = cp.zeros((V_COLS, V_ROWS, 3))
-    # m = m.get()
-
-    y_min = int(np.floor((ROWS - V_ROWS) / 2))
-    y_max = y_min + V_ROWS
-    x_min = int(np.floor((COLS - V_COLS) / 2))
-    x_max = x_min + V_COLS
-
-    # copies matrix in screenarray R channel
-    screenarray[:, :, 0] = m[x_min:x_max, y_min:y_max]
-
-    '''print('ROWS ', ROWS, '\tCOLS ', COLS)
-    print('V_ROWS ', V_ROWS, '\tV_COLS ', V_COLS)
-    print('x: ', x_min, x_max)
-    print('y: ', y_min, y_max)
-    print('screen ', screenarray.shape[0],
-          screenarray.shape[1], '\tmatrix ', m.shape[0], m.shape[1])'''
-
-    # CUDASHIT
-    threadsperblock = (32, 32)
-    blockspergrid_x = int(cp.ceil(V_COLS / threadsperblock[0]))
-    blockspergrid_y = int(cp.ceil(V_ROWS / threadsperblock[1]))
-    blockspergrid = (blockspergrid_x, blockspergrid_y)
-
-    # print(screenarray[2, 1, 0], int(screenarray[2, 1, 0] * COLOR_PRECISION))
-    # i have the power of god and gpu on my side
-    getColors[blockspergrid, threadsperblock](
-        screenarray, cp.array(COLORS))
-
-    # renders array
-    screenarray = screenarray.get()
-    surface = pygame.surfarray.make_surface(screenarray)
-    surf_trans = pygame.transform.scale(surface, SCREEN_REALESTATE)
-    screen.blit(surf_trans, (0, 0))
-
-    # renders name of pattern
-    text_surface = font.render(file, True, (255, 0, 0))
-    screen.blit(text_surface, (10, 10))
-
-    fps_counter()
-
-    pygame.display.flip()
-    clock.tick(FRAMES)
-
-
 # loads ssv | mode: k = kernel, m = matrix
-def loadSSV(file, mode):
-    # try:
+def loadSSV(file=None, rad=None, mode=None):
+
+    if mode == 'r':
+        return rasterize(int(rad))  # create jernel from continuos equation
+
     values = []
 
     with open(file, "r") as f:
 
+        global simVar
+
         lines = f.readlines()
 
-        # gets width and height
-        size = lines[0].split(',')
-        size = [x.strip() for x in size]
+        # gets all variables in SSV
+        args = lines[0].split(',')
+        args = [x.strip() for x in args]
+        # print('\n\n', args, '\n\n')
 
-        width = int(size[0].split(' ')[-1])
-        height = int(size[1].split(' ')[-1])
+        # gets height and width
+        width = int(args[0].split(' ')[-1])
+        height = int(args[1].split(' ')[-1])
+
+        # gets the rest
+        args = args[2:]
+        for a in args:
+
+            tag = a.split(' = ')[0]
+            value = a.split(' = ')[-1]
+            try:
+                value = float(value)  # converts value to float if its a number
+            except:
+                pass
+
+            simVar[tag] = value
+
+        # sets deltaTime for rule B3/S23 since RLEs dont have it
+        if simVar['rule'] == 'B3/S23':
+            simVar['deltaT'] = 1.
 
         lines = lines[1:]
 
@@ -164,16 +154,16 @@ def loadSSV(file, mode):
                 m[j, i] = values[i][j]
 
         return m, float(cp.sum(m))
-    # except:
-    # print('[NO SSV FILE -> RANDOM MODE]')
 
 
+# sprinkles magic squares to generate life from nothingness
 def sprinkleMatx(r):
     m = cp.zeros((COLS, ROWS))
+    r = int(r)
     randArea = cp.random.random((np.clip(r+2, 1, COLS), np.clip(r+2, 1, ROWS)))
 
-    print(f'[M] {m.shape[0]}x{m.shape[1]}')
-    print(f'[randArea] {randArea.shape[0]}x{randArea.shape[1]}')
+    # print(f'[M] {m.shape[0]}x{m.shape[1]}')
+    # print(f'[randArea] {randArea.shape[0]}x{randArea.shape[1]}')
 
     mW = m.shape[0]
     mH = m.shape[1]
@@ -190,17 +180,234 @@ def sprinkleMatx(r):
         up = max(min(up, mH - areaW), 0)
         down = up + areaW
 
-        print(f'  {up}')
+        '''print(f'  {up}')
         print(f'{left}  {right}')
-        print(f'  {down}')
+        print(f'  {down}')'''
 
         m[left:right, up:down] = randArea
 
     return m
 
+
+def convert(args):
+    for i in range(len(args)):
+        # print(args[i])
+        if len(args[i]) == 1:
+            args[i] = args[i][0]
+        elif len(args[i]) == 2:
+            print(args[i])
+            if args[i][0] == 'f':
+                args[i] = float(args[i][1])
+            elif args[i][0] == 'i':
+                x = float(args[i][1])
+                args[i] = int(x)
+            elif args[i][0] == 'b':
+                if args[i][1] == 'True' or args[i][1] == 'true' or args[i][1] == 't':
+                    args[i] = True
+                elif args[i][1] == 'False' or args[i][1] == 'false' or args[i][1] == 'f':
+                    args[i] = False
+        else:
+            args[i] = str(args[i])
+    return args
+
+
+def clear():
+    global matrix
+    matrix = cp.zeros((COLS, ROWS))
+    return 'Hampter'
+
+
+# it's terminal time
+def terminal():
+    global consoleInput
+    global consoleInputBackup
+    global consoleColor
+    bMes = ''  # backMessage
+
+    if len(consoleInput) > 0:
+        if consoleInput[-1] == ')':
+
+            consoleInput = consoleInput[:-1]
+            consoleInputBackup = consoleInput
+
+            actionMode = consoleInput.split('/')[0]
+            consoleInput = consoleInput[2:]
+            # print(actionMode)
+
+            if actionMode == 'v':  # handles variables SEEMS TO WORK
+                var = ''
+                value = ''
+
+                if '=' in consoleInput:
+                    var = consoleInput.split('=')[0].strip()
+                    value = consoleInput.split('=')[1].strip()
+                else:
+                    var = consoleInput
+
+                # se value è un array:
+
+                if var in globals().keys():
+                    if value != '':
+                        value = value.split(':')
+                        print('[V] ', value)
+                        globals()[var] = convert([value])[0]
+                        bMes = globals()[var]
+                    else:
+                        bMes = globals()[var]
+
+                    consoleColor = (0, 220, 0)
+
+                else:
+                    bMes = var + " doesn't exist"
+                    consoleColor = (220, 0, 0)
+
+                print('[VALUE] ', value)
+                consoleInput = var + ' = ' + str(bMes)
+
+            elif actionMode == 'f':  # handles functions KINDA WORKS KINDA
+                var = ''
+                if '=' in consoleInput:
+                    var = consoleInput.split('=')[0].strip()
+                    consoleInput = consoleInput.split('=')[1].strip()
+
+                given = consoleInput.split('(')
+                func = given[0]
+                args = None
+                print(func, end='\t')
+
+                if len(given) > 1:
+                    args = given[1]
+                    args = [c.replace(' ', '') for c in args.split(',')]
+                    args = [c for c in args if c != '']
+                    args = [c.split(':') for c in args]
+
+                args = convert(args)
+                print(args)
+
+                try:
+                    if var != '' and var in globals().keys():
+                        if args == None:
+                            print('APPLY VARIABLE')
+                            globals()[var] = globals()[func]()
+                        else:
+                            globals()[var] = globals()[func](*args)
+
+                        bMes = var + ' = ' + str(globals()[var])
+                    else:
+                        if args == None:
+                            bMes = globals()[func]()
+                        else:
+                            bMes = globals()[func](*args)
+
+                    # colors output grren
+                    consoleColor = (0, 220, 0)
+
+                except Exception as e:
+                    bMes = e
+                    consoleColor = (220, 0, 0)
+
+                consoleInput = str(bMes)
+
+            elif actionMode == 'd':  # handles dictionaries
+                var = ''
+                value = ''
+
+                if '=' in consoleInput:
+                    var = consoleInput.split('=')[0].strip()
+                    value = consoleInput.split('=')[1].strip()
+                else:
+                    var = consoleInput
+
+                if var in globals()['simVar'].keys():
+                    if value != '':
+                        value = value.split(':')
+                        print('[D] ', value)
+                        globals()['simVar'][var] = convert([value])[0]
+                        bMes = globals()['simVar'][var]
+                    else:
+                        bMes = globals()['simVar'][var]
+                    consoleColor = (0, 220, 0)
+
+                else:
+                    bMes = var + " doesn't exist in simVar"
+                    consoleColor = (220, 0, 0)
+
+                print('[FROM DICT] ', value)
+                consoleInput = var + ' = ' + str(bMes)
+
+            else:
+                bMes = '[VALID MODE NEEDED]'
+                consoleColor = (220, 0, 0)
+                consoleInput = str(bMes)
+
+            # print(bMes)
+
+    else:
+        consoleColor = (220, 220, 220)
+
+    s = pygame.Surface((WIDTH, 45), pygame.SRCALPHA)   # per-pixel alpha
+    # notice the alpha value in the color
+    s.fill((0, 0, 0, 150))
+    screen.blit(s, (0, 0))
+
+    console_surface = font.render(
+        '~TERMINL~ '+consoleInput, True, consoleColor)
+    screen.blit(console_surface, (10, 10))
+
+
+# well... it renders
+def render(m):
+    screenarray = cp.zeros((V_COLS, V_ROWS, 3))
+    # m = m.get()
+
+    y_min = int(np.floor((ROWS - V_ROWS) / 2))
+    y_max = y_min + V_ROWS
+    x_min = int(np.floor((COLS - V_COLS) / 2))
+    x_max = x_min + V_COLS
+
+    # copies matrix in screenarray R channel
+    screenarray[:, :, 0] = m[x_min:x_max, y_min:y_max]
+
+    '''print('ROWS ', ROWS, '\tCOLS ', COLS)
+    print('V_ROWS ', V_ROWS, '\tV_COLS ', V_COLS)
+    print('x: ', x_min, x_max)
+    print('y: ', y_min, y_max)
+    print('screen ', screenarray.shape[0],
+          screenarray.shape[1], '\tmatrix ', m.shape[0], m.shape[1])'''
+
+    # CUDASHIT
+    threadsperblock = (32, 32)
+    blockspergrid_x = int(cp.ceil(V_COLS / threadsperblock[0]))
+    blockspergrid_y = int(cp.ceil(V_ROWS / threadsperblock[1]))
+    blockspergrid = (blockspergrid_x, blockspergrid_y)
+
+    # print(screenarray[2, 1, 0], int(screenarray[2, 1, 0] * COLOR_PRECISION))
+    # i have the power of god and gpu on my side
+    getColors[blockspergrid, threadsperblock](
+        screenarray, cp.array(COLORS))
+
+    # renders array
+    screenarray = screenarray.get()
+    surface = pygame.surfarray.make_surface(screenarray)
+    surf_trans = pygame.transform.scale(surface, SCREEN_REALESTATE)
+    screen.blit(surf_trans, (0, 0))
+
+    # renders name of pattern
+    text_surface = font.render(file, True, (255, 0, 0))
+    screen.blit(text_surface, (WIDTH - text_surface.get_width()-20,
+                HEIGHT - text_surface.get_height()-10))
+
+    # calls terminal
+    if terminalMode:
+        terminal()
+
+    fps_counter()
+
+    pygame.display.flip()
+    clock.tick(FRAMES)
+
+
 #####################################################################
-
-
 # by default loads last SSV added to record
 files = []
 filesIndex = -1
@@ -212,17 +419,11 @@ file = files[filesIndex][:-4]
 
 print('[SIMULATING LAST ADDED TO RECORD]->', file)
 
-# loads default SSV file
-matrix = loadSSV("SSV/" + file + ".ssv", mode='m')
-# KERNEL BE LIKE (not used in lenia mode)
-kernel, somK = loadSSV('SSV/KERNELs/GOL.kernel.ssv', mode='k')
 
-##########################################
-# we are using lenia so this is the correct kernel
-mu = .15
-sigma = .017
-kernelRadius = 13
-kernel, somK = rasterize(kernelRadius)
+# loads default SSV file
+matrix = loadSSV(file="SSV/" + file + ".ssv", mode='m')
+# KERNEL BE LIKE (not used in lenia mode)
+kernel, somK = loadSSV(rad=simVar['kernelRadius'], mode='r')
 
 #########################################
 
@@ -232,81 +433,10 @@ p = True
 running = True
 paused = True
 forwOnes = False
+terminalMode = True
+
 while running:
     # gets inputs
-    if True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-
-            # keyboard inputs
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    # pauses simulation
-                    paused = not paused
-
-                elif event.key == pygame.K_RIGHT:
-                    # goes one step forward
-                    paused = False
-                    forwOnes = True
-
-                elif event.key == pygame.K_LEFT:
-                    # goes as many steps back as in memory
-                    matrix = cp.copy(prevMat)
-
-                elif event.key == pygame.K_r:
-                    matrix = sprinkleMatx(kernelRadius)
-                    file = ''
-                elif event.key == pygame.K_DOWN:
-                    # loads next SSV from record
-                    filesIndex = (filesIndex + 1) % len(files)
-                    matrix = loadSSV(
-                        "SSV/" + files[filesIndex][:-4] + ".ssv", mode='m')
-                    file = files[filesIndex][:-4]
-                    pastMemories = []
-                    pastIndex = -1
-
-                elif event.key == pygame.K_UP:
-                    # loads next SSV from record
-                    filesIndex = (filesIndex - 1) % len(files)
-                    matrix = loadSSV(
-                        "SSV/" + files[filesIndex][:-4] + ".ssv", mode='m')
-                    file = files[filesIndex][:-4]
-                    pastMemories = []
-                    pastIndex = -1
-
-                elif event.key == pygame.K_PLUS:
-                    V_RES += 1
-                    V_COLS = int(WIDTH/V_RES)
-                    V_ROWS = int(HEIGHT/V_RES)
-                elif event.key == pygame.K_MINUS:
-                    V_RES -= 1
-                    if V_RES < RES:
-                        V_RES = RES
-                    V_COLS = int(WIDTH/V_RES)
-                    V_ROWS = int(HEIGHT/V_RES)
-
-        # movement handler
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_w] == True:
-            matrix = cp.roll(matrix, +2, axis=1)
-        if keys[pygame.K_s] == True:
-            matrix = cp.roll(matrix, -2, axis=1)
-        if keys[pygame.K_a] == True:
-            matrix = cp.roll(matrix, +2, axis=0)
-        if keys[pygame.K_d] == True:
-            matrix = cp.roll(matrix, -2, axis=0)
-        # FAST ZOOM
-        if keys[pygame.K_PLUS] == True and keys[pygame.K_LCTRL] == True:
-            V_RES += 1
-            V_COLS = int(WIDTH/V_RES)
-            V_ROWS = int(HEIGHT/V_RES)
-        if keys[pygame.K_MINUS] == True and keys[pygame.K_LCTRL] == True:
-            V_RES -= 1
-            if V_RES < RES:
-                V_RES = RES
-            V_COLS = int(WIDTH/V_RES)
-            V_ROWS = int(HEIGHT/V_RES)
 
     if p:
         print('[MATRIX]\n', matrix)
@@ -323,15 +453,17 @@ while running:
     blockspergrid = (blockspergrid_x, blockspergrid_y)
 
     # i have the power of god and gpu on my side
-    GROWTHS[GROWTH_FUNC][blockspergrid, threadsperblock](
-        bufferMatx, convMatx, somK, cp.array((mu, sigma)))
+    GROWTHS[simVar['rule']][blockspergrid, threadsperblock](
+        bufferMatx, convMatx, somK, cp.array((simVar['mu'], simVar['sigma'])))
 
-    deltaT = .05
+    # print(simVar)
+    # simVar['rule']
+
     # introcuces delta time and sums up everything then clips beteen o and 1
-    nextMatx = matrix + (bufferMatx * deltaT)
+    nextMatx = matrix + (bufferMatx * simVar['deltaT'])
     nextMatx = cp.clip(nextMatx, 0., 1.)
 
-    # if program is not paused
+  # if program is not paused
     if not paused:
         # saves prevoious state in memory
         prevMat = cp.copy(matrix)
@@ -344,6 +476,108 @@ while running:
 
     # renders the matrix
     render(matrix)
+
+    if True:
+        for event in pygame.event.get():
+
+            if event.type == pygame.QUIT:
+                running = False
+
+            # keyboard inputs
+            if event.type == pygame.KEYDOWN:
+                # handles terminal input
+
+                if event.key == pygame.K_ESCAPE:
+                    terminalMode = not terminalMode
+
+                elif terminalMode:
+                    # handles text input
+                    if event.key == pygame.K_BACKSPACE:
+                        consoleInput = consoleInput[:-1]
+                    elif event.key == pygame.K_UP:
+                        consoleInput = consoleInputBackup
+                    elif event.key == pygame.K_DELETE:
+                        consoleInput = ''
+                    elif event.key == pygame.K_RETURN:
+                        consoleInput += ')'
+                    else:
+                        consoleInput += event.unicode
+
+                    break
+
+                if event.key == pygame.K_SPACE:
+                    # pauses simulation
+                    paused = not paused
+
+                elif event.key == pygame.K_RIGHT:
+                    # goes one step forward
+                    paused = False
+                    forwOnes = True
+
+                elif event.key == pygame.K_LEFT:
+                    # goes as many steps back as in memory
+                    matrix = cp.copy(prevMat)
+
+                elif event.key == pygame.K_r:
+                    matrix = sprinkleMatx(simVar['kernelRadius'])
+                    file = ''
+                elif event.key == pygame.K_DOWN:
+                    # loads next SSV from record
+                    filesIndex = (filesIndex + 1) % len(files)
+                    matrix = loadSSV(
+                        "SSV/" + files[filesIndex][:-4] + ".ssv", mode='m')
+                    file = files[filesIndex][:-4]
+                    pastMemories = []
+                    pastIndex = -1
+                    print(simVar)
+
+                elif event.key == pygame.K_UP:
+                    # loads next SSV from record
+                    filesIndex = (filesIndex - 1) % len(files)
+                    matrix = loadSSV(
+                        "SSV/" + files[filesIndex][:-4] + ".ssv", mode='m')
+                    file = files[filesIndex][:-4]
+                    pastMemories = []
+                    pastIndex = -1
+                    print(simVar)
+
+                elif event.key == pygame.K_PLUS:
+                    V_RES += 1
+                    V_COLS = int(WIDTH/V_RES)
+                    V_ROWS = int(HEIGHT/V_RES)
+                elif event.key == pygame.K_MINUS:
+                    V_RES -= 1
+                    if V_RES < RES:
+                        V_RES = RES
+                    V_COLS = int(WIDTH/V_RES)
+                    V_ROWS = int(HEIGHT/V_RES)
+
+        # movement handler and others
+        keys = pygame.key.get_pressed()
+        if not terminalMode:
+            if keys[pygame.K_w] == True:
+                matrix = cp.roll(matrix, +2, axis=1)
+            if keys[pygame.K_s] == True:
+                matrix = cp.roll(matrix, -2, axis=1)
+            if keys[pygame.K_a] == True:
+                matrix = cp.roll(matrix, +2, axis=0)
+            if keys[pygame.K_d] == True:
+                matrix = cp.roll(matrix, -2, axis=0)
+            # FAST ZOOM
+            if keys[pygame.K_PLUS] == True and keys[pygame.K_LCTRL] == True:
+                V_RES += 1
+                V_COLS = int(WIDTH/V_RES)
+                V_ROWS = int(HEIGHT/V_RES)
+            if keys[pygame.K_MINUS] == True and keys[pygame.K_LCTRL] == True:
+                V_RES -= 1
+                if V_RES < RES:
+                    V_RES = RES
+                V_COLS = int(WIDTH/V_RES)
+                V_ROWS = int(HEIGHT/V_RES)
+        else:
+            # backspace for terminal input
+            if keys[pygame.K_BACKSPACE] == True and keys[pygame.K_LCTRL] == True:
+                consoleInput = consoleInput[:-1]
 
     if p:
         print('[NEXT MATRIX]\n', nextMatx)

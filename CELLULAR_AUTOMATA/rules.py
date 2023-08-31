@@ -38,4 +38,4 @@ def lenia(buffer, convoluted, somK, args):
         buffer[i, j] = 2 * math.exp((-l**2) / k) - 1
 
 
-GROWTHS = {'B3_S23': B3_S23, 'nextKernel': nextKernel, 'lenia': lenia}
+GROWTHS = {'B3/S23': B3_S23, 'nextKernel': nextKernel, 'lenia': lenia}
