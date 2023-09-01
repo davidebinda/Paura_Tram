@@ -7,14 +7,15 @@ from rules import GROWTHS
 from matplotlib import cm
 from tost import rasterize
 import random
+from datetime import datetime
 
 # SCREEN VARS
 WIDTH = 1600
 HEIGHT = 890
-'''WIDTH = 1100
-HEIGHT = 600'''
+'''WIDTH = 500
+HEIGHT = 500'''
 SCREEN_REALESTATE = (WIDTH, HEIGHT)
-RES = 3
+RES = 5
 COLS = int(WIDTH/RES)
 ROWS = int(HEIGHT/RES)
 V_RES = RES
@@ -31,6 +32,11 @@ simVar = {
     'kernelRadius': 0,
     'deltaT': .0
 }
+
+
+# OTHER STUFF
+mouseStart = (0, 0)
+mouseCurrent = (0, 0)
 
 consoleInput = ''
 consoleInputBackup = 'tumadre'
@@ -80,7 +86,7 @@ def getColors(values, cols):
 def loadSSV(file=None, rad=None, mode=None):
 
     if mode == 'r':
-        return rasterize(int(rad))  # create jernel from continuos equation
+        return rasterize(int(rad))  # create kernel from continuos equation
 
     values = []
 
@@ -115,6 +121,8 @@ def loadSSV(file=None, rad=None, mode=None):
         # sets deltaTime for rule B3/S23 since RLEs dont have it
         if simVar['rule'] == 'B3/S23':
             simVar['deltaT'] = 1.
+            simVar['kEq'] = 'GOL'
+            simVar['gEq'] = 'step'
 
         lines = lines[1:]
 
@@ -215,6 +223,61 @@ def clear():
     global matrix
     matrix = cp.zeros((COLS, ROWS))
     return 'Hampter'
+
+
+# updates files record
+def updateFilesRecord():
+    files = []
+    with open('SSV/RLEs/record.txt', 'r') as f:
+        files = f.readlines()
+
+    files = [x.strip('\n') for x in files]
+    return files
+
+
+# it saves to file ssv a matrix
+def save(m, values):
+    timeStamp = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    fileName = 'zzz_' + values['rule'] + '[' + timeStamp + ']'
+    fileName = fileName.replace(':', '=')
+    print('[SAVED TO]', fileName)
+
+    stringToSave = ''
+
+    # ELIMINA RIGHE E COLONNE VUOTE dove sum() = 0
+    m = np.array(m.get())
+
+    matx = np.ones((m.shape[1], m.shape[0]))
+    for i in range(m.shape[0]):
+        matx[:, i] = m[i, :]
+
+    m = matx
+
+    m = m[(m != 0).sum(1) != 0]
+    column_sums = np.sum(m, axis=0)
+    m = m[:, column_sums != 0]
+
+    # adds dimentions
+    stringToSave += 'x = ' + str(m.shape[1]) + ', '
+    stringToSave += 'y = ' + str(m.shape[0]) + ', '
+
+    # adds parameters
+    for v in simVar.keys():
+        stringToSave += v + ' = ' + str(values[v]) + ', '
+    stringToSave = stringToSave[:-2] + '\n'
+
+    for l in m:
+        stringToSave += '0.0 '  # this is needed because im stupid
+        for v in l:
+            stringToSave += str(v) + ' '
+        stringToSave = stringToSave + "\n"
+
+    # creates file
+    with open('SSV/' + fileName+'.ssv', 'w') as f:
+        f.write(stringToSave)
+
+    with open('SSV/RLEs/record.txt', 'a') as f:
+        f.write('\n' + fileName+'.rle')
 
 
 # it's terminal time
@@ -397,6 +460,13 @@ def render(m):
     screen.blit(text_surface, (WIDTH - text_surface.get_width()-20,
                 HEIGHT - text_surface.get_height()-10))
 
+    # renders selection rectangle
+    if rectMode:
+
+        selecRect = pygame.Rect(mouseStart[0], mouseStart[1], 100, 100)
+        selecColor = pygame.Color(255, 255, 0, 120)
+        pygame.draw.rect(screen, selecColor, selecRect, 3)
+
     # calls terminal
     if terminalMode:
         terminal()
@@ -409,12 +479,8 @@ def render(m):
 
 #####################################################################
 # by default loads last SSV added to record
-files = []
+files = updateFilesRecord()
 filesIndex = -1
-with open('SSV/RLEs/record.txt', 'r') as f:
-    files = f.readlines()
-
-files = [x.strip('\n') for x in files]
 file = files[filesIndex][:-4]
 
 print('[SIMULATING LAST ADDED TO RECORD]->', file)
@@ -433,11 +499,11 @@ p = True
 running = True
 paused = True
 forwOnes = False
-terminalMode = True
+terminalMode = False
+rectMode = False
 
 while running:
     # gets inputs
-
     if p:
         print('[MATRIX]\n', matrix)
 
@@ -523,6 +589,7 @@ while running:
                     file = ''
                 elif event.key == pygame.K_DOWN:
                     # loads next SSV from record
+                    files = updateFilesRecord()
                     filesIndex = (filesIndex + 1) % len(files)
                     matrix = loadSSV(
                         "SSV/" + files[filesIndex][:-4] + ".ssv", mode='m')
@@ -533,6 +600,7 @@ while running:
 
                 elif event.key == pygame.K_UP:
                     # loads next SSV from record
+                    files = updateFilesRecord()
                     filesIndex = (filesIndex - 1) % len(files)
                     matrix = loadSSV(
                         "SSV/" + files[filesIndex][:-4] + ".ssv", mode='m')
@@ -551,6 +619,20 @@ while running:
                         V_RES = RES
                     V_COLS = int(WIDTH/V_RES)
                     V_ROWS = int(HEIGHT/V_RES)
+
+                elif event.key == pygame.K_p:
+                    save(matrix, simVar)
+
+            # mouse inputs
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    rectMode = True
+                    mouseStart = pygame.mouse.get_pos()
+                    mouseCurrent = mouseStart
+
+            if event.type == pygame.MOUSEBUTTONUP:
+                if event.button == 1:
+                    rectMode = False
 
         # movement handler and others
         keys = pygame.key.get_pressed()
