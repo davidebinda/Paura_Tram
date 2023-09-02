@@ -36,7 +36,6 @@ simVar = {
 
 # OTHER STUFF
 mouseStart = (0, 0)
-mouseCurrent = (0, 0)
 
 consoleInput = ''
 consoleInputBackup = 'tumadre'
@@ -236,9 +235,10 @@ def updateFilesRecord():
 
 
 # it saves to file ssv a matrix
-def save(m, values):
+def save(m, values, shave=True):
     timeStamp = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    fileName = 'zzz_' + values['rule'] + '[' + timeStamp + ']'
+    fileName = 'zzz_' + \
+        values['rule'].replace('/', '_') + '[' + timeStamp + ']'
     fileName = fileName.replace(':', '=')
     print('[SAVED TO]', fileName)
 
@@ -253,9 +253,10 @@ def save(m, values):
 
     m = matx
 
-    m = m[(m != 0).sum(1) != 0]
-    column_sums = np.sum(m, axis=0)
-    m = m[:, column_sums != 0]
+    if shave:
+        m = m[(m != 0).sum(1) != 0]
+        column_sums = np.sum(m, axis=0)
+        m = m[:, column_sums != 0]
 
     # adds dimentions
     stringToSave += 'x = ' + str(m.shape[1]) + ', '
@@ -278,6 +279,66 @@ def save(m, values):
 
     with open('SSV/RLEs/record.txt', 'a') as f:
         f.write('\n' + fileName+'.rle')
+
+
+def selectionControl():
+    global rectMode
+    global mouseStart
+    global matrix
+
+    running = True
+    while running:
+        for event in pygame.event.get():
+
+            if event.type == pygame.QUIT:
+                running = False
+
+            # keyboard inputs
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    running = False
+                elif event.key == pygame.K_BACKSPACE:
+
+                    x_offeset = int(np.floor((COLS - V_COLS) / 2))
+                    y_offset = int(np.floor((ROWS - V_ROWS) / 2))
+
+                    x_min, y_min = int(
+                        mouseStart[0]/V_RES) + x_offeset, int(mouseStart[1]/V_RES) + y_offset
+
+                    mx, my = pygame.mouse.get_pos()
+                    r = WIDTH/V_COLS, HEIGHT/V_ROWS
+                    x_max, y_max = mx+(r[0]-(mx % r[0])), my+(r[1]-(my % r[1]))
+                    x_max, y_max = int(x_max/V_RES) + \
+                        x_offeset, int(y_max/V_RES)+y_offset
+
+                    print(f'({x_min},{y_min})-->({x_max},{y_max})')
+
+                    matrix[x_min:x_max, y_min:y_max] = 0.
+                    print('DELETED')
+                    running = False
+
+                elif event.key == pygame.K_RETURN:
+
+                    x_offeset = int(np.floor((COLS - V_COLS) / 2))
+                    y_offset = int(np.floor((ROWS - V_ROWS) / 2))
+
+                    x_min, y_min = int(
+                        mouseStart[0]/V_RES) + x_offeset, int(mouseStart[1]/V_RES) + y_offset
+
+                    mx, my = pygame.mouse.get_pos()
+                    r = WIDTH/V_COLS, HEIGHT/V_ROWS
+                    x_max, y_max = mx+(r[0]-(mx % r[0])), my+(r[1]-(my % r[1]))
+                    x_max, y_max = int(x_max/V_RES) + \
+                        x_offeset, int(y_max/V_RES)+y_offset
+
+                    print(f'({x_min},{y_min})-->({x_max},{y_max})')
+
+                    save(matrix[x_min:x_max, y_min:y_max], simVar, shave=False)
+
+                    print('SAVED')
+                    running = False
+                else:
+                    running = False
 
 
 # it's terminal time
@@ -462,10 +523,20 @@ def render(m):
 
     # renders selection rectangle
     if rectMode:
+        mx, my = pygame.mouse.get_pos()
+        r = WIDTH/V_COLS, HEIGHT/V_ROWS
+        mx, my = mx + (r[0] - (mx % r[0])), my + (r[1] - (my % r[1]))
+        w = mx - mouseStart[0] + 2
+        h = my - mouseStart[1] + 2
+        selecRect = (mouseStart[0], mouseStart[1], w, h)
+        selecColor = (255, 255, 0, 255)
+        pygame.draw.rect(screen, selecColor, selecRect, int(V_RES / 3))
 
-        selecRect = pygame.Rect(mouseStart[0], mouseStart[1], 100, 100)
-        selecColor = pygame.Color(255, 255, 0, 120)
-        pygame.draw.rect(screen, selecColor, selecRect, 3)
+        # transparency to rectangle?
+        '''shape_surf = pygame.Surface(
+            pygame.Rect(selecRect).size, pygame.SRCALPHA)
+        pygame.draw.rect(shape_surf, selecColor, shape_surf.get_rect())
+        surface.blit(shape_surf, selecRect)'''
 
     # calls terminal
     if terminalMode:
@@ -495,6 +566,7 @@ kernel, somK = loadSSV(rad=simVar['kernelRadius'], mode='r')
 
 # OMG THE LOOP WOW SO COOL
 prevMat = cp.copy(matrix)
+backupMat = cp.copy(matrix)
 p = True
 running = True
 paused = True
@@ -587,6 +659,8 @@ while running:
                 elif event.key == pygame.K_r:
                     matrix = sprinkleMatx(simVar['kernelRadius'])
                     file = ''
+                    backupMat = cp.copy(matrix)
+
                 elif event.key == pygame.K_DOWN:
                     # loads next SSV from record
                     files = updateFilesRecord()
@@ -596,6 +670,7 @@ while running:
                     file = files[filesIndex][:-4]
                     pastMemories = []
                     pastIndex = -1
+                    backupMat = cp.copy(matrix)
                     print(simVar)
 
                 elif event.key == pygame.K_UP:
@@ -607,6 +682,7 @@ while running:
                     file = files[filesIndex][:-4]
                     pastMemories = []
                     pastIndex = -1
+                    backupMat = cp.copy(matrix)
                     print(simVar)
 
                 elif event.key == pygame.K_PLUS:
@@ -623,16 +699,24 @@ while running:
                 elif event.key == pygame.K_p:
                     save(matrix, simVar)
 
+                elif event.key == pygame.K_BACKSPACE:
+                    matrix = cp.copy(backupMat)
+
             # mouse inputs
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
+                    paused = True
                     rectMode = True
-                    mouseStart = pygame.mouse.get_pos()
-                    mouseCurrent = mouseStart
+                    mx, my = pygame.mouse.get_pos()
+                    r = WIDTH/V_COLS, HEIGHT/V_ROWS
+                    mouseStart = (mx - (mx % r[0]), my - (my % r[1]))
+                    print(mouseStart)
+                    print(V_COLS, V_ROWS)
 
             if event.type == pygame.MOUSEBUTTONUP:
                 if event.button == 1:
                     rectMode = False
+                    selectionControl()
 
         # movement handler and others
         keys = pygame.key.get_pressed()
